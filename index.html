@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sistem Key In — Prototaip OCR IC</title>
+<style>
+  *{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#f1f5f9;margin:0;padding:24px;color:#0f172a}
+  .wrap{max-width:900px;margin:auto;display:grid;grid-template-columns:1fr 300px;gap:20px}
+  .card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px #0002}
+  h1{font-size:20px;margin:0 0 4px}small{color:#64748b}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 4px}
+  input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px}
+  input.filled{background:#ecfdf5;border-color:#10b981}
+  button{padding:11px 16px;border:0;border-radius:8px;font-size:15px;cursor:pointer;margin-top:16px}
+  .pri{background:#1d4ed8;color:#fff;width:100%}.sec{background:#e2e8f0;width:100%}
+  #qrBox{text-align:center;display:none}#qrBox img{width:220px;height:220px}
+  #status{font-size:13px;margin-top:10px;color:#475569}.msg{padding:10px;border-radius:8px;margin-top:12px;display:none}
+  .ok{background:#dcfce7;color:#166534}.err{background:#fee2e2;color:#991b1b}
+  @media(max-width:760px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Sistem Key In</h1><small>Prototaip ujian — isi manual atau guna handphone sebagai scanner OCR</small>
+    <label>No. Kad Pengenalan</label><input id="ic" maxlength="14" placeholder="900101-01-1234">
+    <label>Nama Penuh</label><input id="nama" placeholder="NAMA SEPERTI DALAM IC">
+    <label>DUN</label><input id="dun" placeholder="cth: N.xx Nama DUN">
+    <label>Parlimen</label><input id="parlimen" placeholder="cth: P.xxx Nama Parlimen">
+    <button class="pri" onclick="simpan()">Simpan ke Google Sheet</button>
+    <div id="msg" class="msg"></div>
+  </div>
+  <div class="card">
+    <h1>Scanner Handphone</h1><small>Imbas QR guna handphone untuk scan IC</small>
+    <button class="sec" onclick="mulaSesi()">📱 Guna Handphone</button>
+    <div id="qrBox"><img id="qr" alt="QR"><div><b id="sid"></b></div></div>
+    <div id="status"></div>
+  </div>
+</div>
+<script>
+const API_URL = 'PASTE_URL_WEB_APP_APPS_SCRIPT';   // .../exec
+const SCAN_PAGE = new URL('scan.html', location.href).href;
+let session = null, timer = null, sumber = 'MANUAL';
+
+const $ = id => document.getElementById(id);
+async function api(body){
+  const r = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+  return r.json();
+}
+function fmtIC(v){const d=v.replace(/\D/g,'').slice(0,12);return d.length>8?`${d.slice(0,6)}-${d.slice(6,8)}-${d.slice(8)}`:d.length>6?`${d.slice(0,6)}-${d.slice(6)}`:d;}
+$('ic').addEventListener('input',e=>e.target.value=fmtIC(e.target.value));
+function show(t,ok){const m=$('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err');m.style.display='block';}
+
+async function mulaSesi(){
+  clearInterval(timer);
+  $('status').textContent='Membuka sesi...';
+  const r = await api({action:'newSession'});
+  if(!r.ok) return $('status').textContent='Ralat: '+r.error;
+  session = r.session;
+  const link = SCAN_PAGE+'?s='+session;
+  $('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(link);
+  $('sid').textContent='Sesi: '+session; $('qrBox').style.display='block';
+  $('status').textContent='⏳ Menunggu data dari handphone...';
+  const mula = Date.now();
+  timer = setInterval(async()=>{
+    if(Date.now()-mula>5*60e3){clearInterval(timer);$('status').textContent='Sesi tamat. Klik semula.';return;}
+    try{
+      const p = await api({action:'poll',session});
+      if(p.ok && p.status==='SCANNED'){
+        clearInterval(timer);
+        $('ic').value=fmtIC(p.data.ic); $('nama').value=p.data.nama; $('dun').value=p.data.dun; $('parlimen').value=p.data.parlimen;
+        ['ic','nama','dun','parlimen'].forEach(k=>$(k).value&&$(k).classList.add('filled'));
+        sumber='OCR'; $('status').textContent='✅ Data diterima. Semak & simpan.';
+      }
+    }catch(e){}
+  },2500);
+}
+
+async function simpan(){
+  const d={action:'save',ic:$('ic').value,nama:$('nama').value.trim(),dun:$('dun').value.trim(),parlimen:$('parlimen').value.trim(),sumber,session};
+  if(d.ic.replace(/\D/g,'').length!==12) return show('No IC mesti 12 digit',false);
+  if(!d.nama) return show('Nama wajib diisi',false);
+  const r = await api(d);
+  if(!r.ok) return show('Ralat: '+r.error,false);
+  show('Rekod disimpan ✔',true);
+  ['ic','nama','dun','parlimen'].forEach(k=>{$(k).value='';$(k).classList.remove('filled')});
+  sumber='MANUAL'; session=null; $('qrBox').style.display='none'; $('status').textContent='';
+}
+</script>
+</body>
+</html>

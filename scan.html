@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scanner IC</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  *{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:16px}
+  .card{background:#1e293b;border-radius:14px;padding:16px;margin-bottom:14px}
+  h1{font-size:18px;margin:0 0 4px}small{color:#94a3b8}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:10px;font-size:16px;margin-top:12px;text-align:center;cursor:pointer}
+  .pri{background:#2563eb;color:#fff}.grn{background:#16a34a;color:#fff}.amb{background:#d97706;color:#fff}
+  label{display:block;font-size:13px;margin:12px 0 4px;color:#cbd5e1}
+  input{width:100%;padding:12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:16px}
+  #preview{width:100%;border-radius:10px;margin-top:10px;display:none}
+  #prog{height:6px;background:#334155;border-radius:3px;margin-top:10px;overflow:hidden;display:none}#bar{height:100%;width:0;background:#38bdf8}
+  #msg{margin-top:10px;font-size:14px}.step{opacity:.4;pointer-events:none}.step.on{opacity:1;pointer-events:auto}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📷 Scan MyKad</h1><small id="sesi"></small>
+  <label for="cam" class="btn pri">Ambil Gambar IC (depan)</label>
+  <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+  <img id="preview"><div id="prog"><div id="bar"></div></div><div id="msg"></div>
+</div>
+
+<div class="card step" id="s2">
+  <h1>1. Semak hasil OCR</h1><small>Betulkan jika ada salah baca</small>
+  <label>No. IC</label><input id="ic" inputmode="numeric" maxlength="14">
+  <label>Nama Penuh</label><input id="nama">
+</div>
+
+<div class="card step" id="s3">
+  <h1>2. Semak SPR</h1><small>No IC akan disalin. Tampal di laman SPR, selesaikan CAPTCHA, kemudian isi DUN di bawah.</small>
+  <button class="btn amb" onclick="semakSPR()">🔎 Salin IC & Buka SPR</button>
+  <label>DUN</label><input id="dun" placeholder="cth: N.xx Nama DUN">
+  <label>Parlimen</label><input id="parlimen" placeholder="cth: P.xxx Nama Parlimen">
+  <button class="btn grn" onclick="hantar()">📤 Hantar ke Sistem Key In</button>
+</div>
+
+<script>
+const API_URL = 'PASTE_URL_WEB_APP_APPS_SCRIPT';   // sama dengan index.html
+const SPR_URL = 'https://mysprsemak.spr.gov.my/semakan/daftarPemilih';
+const session = new URLSearchParams(location.search).get('s');
+const $ = id => document.getElementById(id);
+$('sesi').textContent = session ? 'Sesi: '+session : '⚠️ Tiada sesi — imbas QR dari sistem key in';
+
+const fmtIC = v => {const d=v.replace(/\D/g,'').slice(0,12);return d.length>8?`${d.slice(0,6)}-${d.slice(6,8)}-${d.slice(8)}`:d;};
+$('ic').addEventListener('input',e=>e.target.value=fmtIC(e.target.value));
+const on = () => ['s2','s3'].forEach(i=>$(i).classList.add('on'));
+
+// Pra-proses: kecilkan, grayscale, tingkatkan kontras -> OCR lebih tepat & laju
+function preprocess(file){
+  return new Promise(res=>{
+    const img=new Image();img.onload=()=>{
+      const sc=Math.min(1,1600/img.width),c=document.createElement('canvas');
+      c.width=img.width*sc;c.height=img.height*sc;const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+      const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+      for(let i=0;i<p.length;i+=4){let g=.299*p[i]+.587*p[i+1]+.114*p[i+2];g=(g-128)*1.6+128;g=g<0?0:g>255?255:g;p[i]=p[i+1]=p[i+2]=g;}
+      x.putImageData(d,0,0);res(c);
+    };img.src=URL.createObjectURL(file);
+  });
+}
+
+const BUANG = /KAD|PENGENALAN|MALAYSIA|MYKAD|IDENTITY|CARD|WARGANEGARA|LELAKI|PEREMPUAN|ISLAM|KERAJAAN/;
+function parse(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let ic='',icIdx=-1;
+  lines.forEach((l,i)=>{const m=l.replace(/[oO]/g,'0').replace(/\s/g,'').match(/(\d{6})-?(\d{2})-?(\d{4})/);if(m&&!ic){ic=m[1]+m[2]+m[3];icIdx=i;}});
+  // Nama: baris huruf besar tanpa digit selepas baris IC, berhenti bila jumpa alamat (ada digit)
+  const nama=[];
+  for(let i=icIdx+1;i<lines.length&&nama.length<3;i++){
+    const l=lines[i].replace(/[^A-Za-z@'\/\. ]/g,'').trim();
+    if(/\d/.test(lines[i])&&nama.length) break;
+    if(l.length>=3 && l===l.toUpperCase() && !BUANG.test(l)) nama.push(l);
+  }
+  return {ic, nama:nama.join(' ').replace(/\s+/g,' ').trim()};
+}
+
+$('cam').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  $('preview').src=URL.createObjectURL(f);$('preview').style.display='block';
+  $('prog').style.display='block';$('msg').textContent='Membaca IC...';
+  try{
+    const canvas=await preprocess(f);
+    const {data}=await Tesseract.recognize(canvas,'eng',{logger:m=>{if(m.status==='recognizing text')$('bar').style.width=(m.progress*100)+'%';}});
+    const r=parse(data.text);
+    $('ic').value=fmtIC(r.ic);$('nama').value=r.nama;
+    $('msg').textContent=r.ic?'✅ OCR selesai. Sila semak.':'⚠️ No IC tidak dikesan — taip manual atau ambil gambar semula.';
+  }catch(err){$('msg').textContent='Ralat OCR: '+err.message;}
+  on();
+});
+
+async function semakSPR(){
+  const ic=$('ic').value.replace(/\D/g,'');
+  if(ic.length!==12) return alert('No IC mesti 12 digit');
+  try{await navigator.clipboard.writeText(ic);}catch(e){}
+  window.open(SPR_URL,'_blank');
+}
+
+async function hantar(){
+  if(!session) return alert('Tiada sesi. Imbas QR dari sistem key in.');
+  const body={action:'pushScan',session,ic:$('ic').value,nama:$('nama').value.trim().toUpperCase(),dun:$('dun').value.trim(),parlimen:$('parlimen').value.trim()};
+  if(body.ic.replace(/\D/g,'').length!==12||!body.nama) return alert('No IC & nama wajib');
+  $('msg').textContent='Menghantar...';
+  const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(r=>r.json());
+  $('msg').textContent=r.ok?'✅ Dihantar! Semak skrin sistem key in.':'❌ '+r.error;
+  if(r.ok) window.scrollTo(0,0);
+}
+on();
+</script>
+</body>
+</html>
