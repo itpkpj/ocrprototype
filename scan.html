@@ -2,180 +2,95 @@
 <html lang="ms">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Scanner No. IC</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<title>Sistem Key In — Prototaip OCR IC</title>
 <style>
-  *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0}
-  header{padding:12px 16px;background:#1e293b;font-weight:600}header small{display:block;color:#94a3b8;font-weight:400}
-  main{max-width:640px;margin:auto;padding:14px}
-  .cam{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:12px;overflow:hidden}
-  video{width:100%;height:100%;object-fit:cover}
-  /* Jalur sempit khusus untuk baris nombor IC */
-  .shade{position:absolute;inset:0;background:rgba(0,0,0,.45);clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 41%,10% 41%,10% 59%,90% 59%,90% 41%,0 41%)}
-  .guide{position:absolute;left:10%;right:10%;top:41%;height:18%;border:3px solid #f59e0b;border-radius:8px;pointer-events:none}
-  .guide.ok{border-color:#22c55e}
-  .guide span{position:absolute;top:-28px;left:0;font-size:12px;background:#f59e0b;color:#000;padding:3px 8px;border-radius:6px;white-space:nowrap}
-  .guide.ok span{background:#22c55e}
-  #live{position:absolute;bottom:8px;left:8px;right:8px;text-align:center;font:600 18px monospace;letter-spacing:2px;color:#fff;text-shadow:0 0 4px #000}
-  .tools{display:flex;gap:8px;align-items:center;margin:10px 0}
-  .tools input[type=range]{flex:1}
-  .btns{display:flex;gap:8px;margin:10px 0}
-  button{flex:1;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
-  .p{background:#22c55e;color:#000}.s{background:#334155;color:#e2e8f0}.a{background:#d97706;color:#fff}.b{background:#2563eb;color:#fff}
-  button:disabled{opacity:.5}.sm{flex:0 0 auto;padding:10px 12px;font-size:13px}
-  .card{background:#1e293b;border-radius:12px;padding:14px;margin-top:12px}
-  .muted{color:#94a3b8;font-size:13px}
-  label{display:block;font-size:13px;margin:10px 0 4px;color:#cbd5e1}
-  .row{display:flex;gap:6px}.row input{flex:1}
-  input{width:100%;padding:12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:16px}
-  #ic{font:700 24px monospace;letter-spacing:2px;color:#22c55e;text-align:center}
-  .hide{display:none}
-  #back{background:#14532d;border:1px solid #22c55e}
+  *{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#f1f5f9;margin:0;padding:24px;color:#0f172a}
+  .wrap{max-width:900px;margin:auto;display:grid;grid-template-columns:1fr 300px;gap:20px}
+  .card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px #0002}
+  h1{font-size:20px;margin:0 0 4px}small{color:#64748b}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 4px}
+  input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px}
+  input.filled{background:#ecfdf5;border-color:#10b981}
+  button{padding:11px 16px;border:0;border-radius:8px;font-size:15px;cursor:pointer;margin-top:16px}
+  .pri{background:#1d4ed8;color:#fff;width:100%}.sec{background:#e2e8f0;width:100%}
+  #qrBox{text-align:center;display:none}#qrBox img{width:220px;height:220px}
+  #status{font-size:13px;margin-top:10px;color:#475569}.msg{padding:10px;border-radius:8px;margin-top:12px;display:none}
+  .ok{background:#dcfce7;color:#166534}.err{background:#fee2e2;color:#991b1b}
+  @media(max-width:760px){.wrap{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header>📷 Scanner No. IC <small id="sesi"></small></header>
-<main>
-  <div class="cam">
-    <video id="video" autoplay playsinline muted></video>
-    <div class="shade"></div>
-    <div class="guide" id="guide"><span>Letakkan NOMBOR IC (XXXXXX-XX-XXXX) dalam jalur</span></div>
-    <div id="live"></div>
-  </div>
-  <div class="tools">
-    <span class="muted">Zoom</span><input type="range" id="zoom" disabled>
-    <button class="s sm" id="btnTorch" disabled>🔦</button>
-    <button class="s sm" id="btnSwitch">🔄</button>
-  </div>
-  <div class="btns hide"><button class="p" id="btnStart">▶ Mula Imbas</button></div>
-  <div class="card"><div id="status" class="muted">Tekan "Mula Imbas".</div></div>
-
+<div class="wrap">
   <div class="card">
-    <label>No. IC dikesan</label><input id="ic" readonly placeholder="XXXXXX-XX-XXXX">
+    <h1>Sistem Key In</h1><small>Prototaip ujian — isi manual atau guna handphone sebagai scanner OCR</small>
+    <label>No. Kad Pengenalan</label><input id="ic" maxlength="14" placeholder="900101-01-1234">
+    <label>Nama Penuh</label><input id="nama" placeholder="NAMA SEPERTI DALAM IC">
+    <label>DUN</label><input id="dun" placeholder="cth: N.xx Nama DUN">
+    <label>Parlimen</label><input id="parlimen" placeholder="cth: P.xxx Nama Parlimen">
+    <button class="pri" onclick="simpan()">Simpan ke Google Sheet</button>
+    <div id="msg" class="msg"></div>
   </div>
-
-  <div class="card"><div class="muted">IC terakhir dihantar:</div><div id="sent" class="muted">—</div></div>
-</main>
-
+  <div class="card">
+    <h1>Scanner Handphone</h1><small>Imbas QR guna handphone untuk scan IC</small>
+    <button class="sec" onclick="mulaSesi()">📱 Guna Handphone</button>
+    <div id="qrBox"><img id="qr" alt="QR"><div><b id="sid"></b></div></div>
+    <div id="status"></div>
+  </div>
+</div>
 <script>
-const API_URL = 'PASTE_URL_WEB_APP_APPS_SCRIPT';
-const session = new URLSearchParams(location.search).get('s');
+const API_URL = 'PASTE_URL_WEB_APP_APPS_SCRIPT';   // .../exec
+const SCAN_PAGE = new URL('scan.html', location.href).href;
+let session = null, timer = null, sumber = 'MANUAL';
+
 const $ = id => document.getElementById(id);
-const video=$('video');
-let lastSent='', stream=null, track=null, facing='environment', worker=null, scanning=false, lastIC='', hits=0, torch=false;
-$('sesi').textContent = session ? 'Sesi: '+session : '⚠️ Tiada sesi — imbas QR dari sistem key in';
-
-const status = t => $('status').textContent = t;
-const fmt = d => d.length>8?`${d.slice(0,6)}-${d.slice(6,8)}-${d.slice(8)}`:d.length>6?`${d.slice(0,6)}-${d.slice(6)}`:d;
-
-
-
-/* ---------- Kamera: fokus berterusan, zoom, lampu ---------- */
-async function startCam(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920},height:{ideal:1080}},audio:false});
-  video.srcObject=stream; track=stream.getVideoTracks()[0];
-  const cap=track.getCapabilities?track.getCapabilities():{};
-  const adv={};
-  if(cap.focusMode?.includes('continuous')) adv.focusMode='continuous';
-  if(cap.exposureMode?.includes('continuous')) adv.exposureMode='continuous';
-  if(Object.keys(adv).length) try{ await track.applyConstraints({advanced:[adv]}); }catch(e){}
-  if(cap.zoom){ const z=$('zoom'); z.min=cap.zoom.min; z.max=cap.zoom.max; z.step=cap.zoom.step||.1;
-    z.value=Math.min(cap.zoom.max,Math.max(cap.zoom.min,1.5)); z.disabled=false; setZoom(); }
-  $('btnTorch').disabled=!cap.torch;
+async function api(body){
+  const r = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+  const t = await r.text();
+  try{ return JSON.parse(t); }catch(e){ throw new Error('Respons bukan JSON (kemungkinan perlu login / akses bukan "Anyone")'); }
 }
-function setZoom(){ try{ track.applyConstraints({advanced:[{zoom:+$('zoom').value}]}); }catch(e){} }
-$('zoom').oninput=setZoom;
-$('btnTorch').onclick=()=>{ torch=!torch; track.applyConstraints({advanced:[{torch}]}).catch(()=>{}); };
-$('btnSwitch').onclick=async()=>{ facing=facing==='environment'?'user':'environment'; await startCam(); };
-// Ketik video untuk paksa fokus semula
-video.onclick=()=>{ if(!track) return; track.applyConstraints({advanced:[{focusMode:'single-shot'}]}).then(()=>setTimeout(()=>track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{}),800)).catch(()=>{}); };
+function fmtIC(v){const d=v.replace(/\D/g,'').slice(0,12);return d.length>8?`${d.slice(0,6)}-${d.slice(6,8)}-${d.slice(8)}`:d.length>6?`${d.slice(0,6)}-${d.slice(6)}`:d;}
+$('ic').addEventListener('input',e=>e.target.value=fmtIC(e.target.value));
+function show(t,ok){const m=$('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err');m.style.display='block';}
 
-/* ---------- OCR: digit sahaja, satu baris ---------- */
-async function getWorker(){
-  if(worker) return worker;
-  status('Memuatkan enjin OCR...');
-  worker=await Tesseract.createWorker('eng');
-  await worker.setParameters({tessedit_char_whitelist:'0123456789-',tessedit_pageseg_mode:'7'}); // 7 = satu baris teks
-  return worker;
-}
-
-// Potong jalur IC → besarkan → grayscale → binari (Otsu)
-function grab(){
-  const vw=video.videoWidth, vh=video.videoHeight;
-  // padan dengan object-fit:cover pada video
-  const ew=video.clientWidth, eh=video.clientHeight, s=Math.max(ew/vw,eh/vh);
-  const ox=(vw*s-ew)/2, oy=(vh*s-eh)/2;
-  const sx=(ew*.10+ox)/s, sy=(eh*.41+oy)/s, sw=(ew*.80)/s, sh=(eh*.18)/s;
-  const H=110, W=Math.round(sw*H/sh);
-  const c=document.createElement('canvas'); c.width=W+40; c.height=H+40;
-  const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height);
-  x.imageSmoothingQuality='high'; x.drawImage(video,sx,sy,sw,sh,20,20,W,H);
-  const im=x.getImageData(0,0,c.width,c.height), d=im.data, hist=new Array(256).fill(0), g=new Uint8Array(d.length/4);
-  for(let i=0,j=0;i<d.length;i+=4,j++){ g[j]=.299*d[i]+.587*d[i+1]+.114*d[i+2]; hist[g[j]]++; }
-  // Otsu threshold
-  let sum=0,sumB=0,wB=0,max=0,th=128; const tot=g.length;
-  for(let i=0;i<256;i++) sum+=i*hist[i];
-  for(let i=0;i<256;i++){ wB+=hist[i]; if(!wB) continue; const wF=tot-wB; if(!wF) break;
-    sumB+=i*hist[i]; const mB=sumB/wB, mF=(sum-sumB)/wF, v=wB*wF*(mB-mF)**2; if(v>max){max=v;th=i;} }
-  for(let i=0,j=0;i<d.length;i+=4,j++){ const v=g[j]>th?255:0; d[i]=d[i+1]=d[i+2]=v; }
-  x.putImageData(im,0,0); return c;
-}
-
-function validIC(ic){
-  const mm=+ic.slice(2,4), dd=+ic.slice(4,6), pb=ic.slice(6,8);
-  return mm>=1&&mm<=12&&dd>=1&&dd<=31&&pb!=='00';
-}
-function extract(text){
-  const t=text.replace(/\s/g,'');
-  const m=t.match(/(\d{6})-(\d{2})-(\d{4})/) || t.match(/(\d{6})-?(\d{2})-?(\d{4})/);
-  if(!m) return '';
-  const ic=m[1]+m[2]+m[3]; return validIC(ic)?ic:'';
-}
-
-async function loop(){
-  if(!scanning) return;
-  if(video.videoWidth){
+async function mulaSesi(){
+  clearInterval(timer);
+  $('status').textContent='Membuka sesi...';
+  if(API_URL.includes('PASTE_')) return $('status').textContent='❌ API_URL belum diisi dalam index.html';
+  let r;
+  try{ r = await api({action:'newSession'}); }
+  catch(e){ return $('status').textContent='❌ Gagal hubungi Apps Script: '+e.message+'. Semak URL /exec & akses "Anyone".'; }
+  if(!r.ok) return $('status').textContent='❌ Ralat server: '+r.error;
+  session = r.session;
+  const link = SCAN_PAGE+'?s='+session;
+  $('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(link);
+  $('sid').textContent='Sesi: '+session; $('qrBox').style.display='block';
+  $('status').textContent='⏳ Menunggu data dari handphone...';
+  let mula = Date.now();
+  timer = setInterval(async()=>{
+    if(Date.now()-mula>10*60e3){clearInterval(timer);$('status').textContent='Sesi tamat. Klik semula.';return;}
     try{
-      const {data}=await (await getWorker()).recognize(grab());
-      const raw=data.text.trim(), ic=extract(raw);
-      $('live').textContent=raw.slice(0,20);
-      if(ic && data.confidence>55){
-        hits = ic===lastIC ? hits+1 : 1; lastIC=ic;
-        $('guide').classList.add('ok'); status(`Dikesan ${fmt(ic)} (${hits}/3) — pegang stabil...`);
-        if(hits>=3) return done(ic);
-      }else{ $('guide').classList.remove('ok'); status('🔍 Mengimbas... dekatkan supaya nombor memenuhi jalur'); }
-    }catch(e){ status('Ralat OCR: '+e.message); }
-  }
-  setTimeout(loop,150);
+      const p = await api({action:'poll',session});
+      if(p.ok && p.status==='SCANNED'){
+        mula = Date.now();   // sesi kekal aktif selagi ada imbasan
+        $('ic').value=fmtIC(p.data.ic); $('ic').classList.add('filled');
+        sumber='OCR'; $('status').textContent='✅ IC '+fmtIC(p.data.ic)+' diterima. Lengkapkan & simpan.';
+        $('nama').focus();
+      }
+    }catch(e){}
+  },2500);
 }
 
-async function done(ic){
-  $('ic').value=fmt(ic); $('live').textContent='';
-  if(navigator.vibrate) navigator.vibrate(150);
-  if(ic===lastSent){ status('IC ini sudah dihantar. Letak IC lain...'); return resume(); }
-  status('📤 Menghantar '+fmt(ic)+'...');
-  try{
-    const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'pushScan',session,ic})}).then(r=>r.json());
-    if(!r.ok) throw new Error(r.error);
-    lastSent=ic; $('sent').textContent=fmt(ic)+' ✅ '+new Date().toLocaleTimeString();
-    status('✅ '+fmt(ic)+' dihantar ke PC. Imbas IC seterusnya dalam 2 saat...');
-  }catch(e){ status('❌ Gagal hantar: '+e.message+'. Cuba lagi...'); }
-  setTimeout(resume,2000);
+async function simpan(){
+  const d={action:'save',ic:$('ic').value,nama:$('nama').value.trim(),dun:$('dun').value.trim(),parlimen:$('parlimen').value.trim(),sumber,session};
+  if(d.ic.replace(/\D/g,'').length!==12) return show('No IC mesti 12 digit',false);
+  if(!d.nama) return show('Nama wajib diisi',false);
+  const r = await api(d);
+  if(!r.ok) return show('Ralat: '+r.error,false);
+  show('Rekod disimpan ✔',true);
+  ['ic','nama','dun','parlimen'].forEach(k=>{$(k).value='';$(k).classList.remove('filled')});
+  sumber='MANUAL';
+  if(session) $('status').textContent='⏳ Menunggu IC seterusnya dari handphone...';
 }
-function resume(){ lastIC=''; hits=0; $('guide').classList.remove('ok'); scanning=true; loop(); }
-
-async function start(){
-  try{ if(!stream) await startCam(); }catch(e){ document.querySelector('.btns.hide')?.classList.remove('hide'); return status('Gagal buka kamera: '+e.message+' (perlu HTTPS & izin kamera)'); }
-  await getWorker();
-  lastIC=''; hits=0; scanning=true; $('guide').classList.remove('ok');
-  $('btnStart').textContent='⏸ Mengimbas...'; $('btnStart').disabled=true;
-  loop();
-}
-$('btnStart').onclick=start;
-
-// Mula: pulihkan data jika ada, jika tiada terus buka kamera & imbas
-if(session) start(); else status('⚠️ Imbas QR dari sistem key in dahulu.');
 </script>
 </body>
 </html>
