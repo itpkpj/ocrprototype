@@ -38,7 +38,7 @@
   </div>
 </div>
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbyZsCARpa2k6Y43Lq9r4UFtzk05q5II-bYcloru0awcwZX2R0Rp9XIvmex0LO8VmG2s/exec';   // .../exec
+const API_URL = 'PASTE_URL_WEB_APP_APPS_SCRIPT';   // .../exec
 const SCAN_PAGE = new URL('scan.html', location.href).href;
 let session = null, timer = null, sumber = 'MANUAL';
 
@@ -61,16 +61,16 @@ async function mulaSesi(){
   $('qr').src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(link);
   $('sid').textContent='Sesi: '+session; $('qrBox').style.display='block';
   $('status').textContent='⏳ Menunggu data dari handphone...';
-  const mula = Date.now();
+  let mula = Date.now();
   timer = setInterval(async()=>{
-    if(Date.now()-mula>5*60e3){clearInterval(timer);$('status').textContent='Sesi tamat. Klik semula.';return;}
+    if(Date.now()-mula>10*60e3){clearInterval(timer);$('status').textContent='Sesi tamat. Klik semula.';return;}
     try{
       const p = await api({action:'poll',session});
       if(p.ok && p.status==='SCANNED'){
-        clearInterval(timer);
-        $('ic').value=fmtIC(p.data.ic); $('nama').value=p.data.nama; $('dun').value=p.data.dun; $('parlimen').value=p.data.parlimen;
-        ['ic','nama','dun','parlimen'].forEach(k=>$(k).value&&$(k).classList.add('filled'));
-        sumber='OCR'; $('status').textContent='✅ Data diterima. Semak & simpan.';
+        mula = Date.now();   // sesi kekal aktif selagi ada imbasan
+        $('ic').value=fmtIC(p.data.ic); $('ic').classList.add('filled');
+        sumber='OCR'; $('status').textContent='✅ IC '+fmtIC(p.data.ic)+' diterima. Lengkapkan & simpan.';
+        $('nama').focus();
       }
     }catch(e){}
   },2500);
@@ -84,7 +84,8 @@ async function simpan(){
   if(!r.ok) return show('Ralat: '+r.error,false);
   show('Rekod disimpan ✔',true);
   ['ic','nama','dun','parlimen'].forEach(k=>{$(k).value='';$(k).classList.remove('filled')});
-  sumber='MANUAL'; session=null; $('qrBox').style.display='none'; $('status').textContent='';
+  sumber='MANUAL';
+  if(session) $('status').textContent='⏳ Menunggu IC seterusnya dari handphone...';
 }
 </script>
 </body>
